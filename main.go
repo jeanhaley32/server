@@ -102,15 +102,20 @@ func sessionHandler(sessc chan string, errc chan error, logc chan string, c net.
 				return
 			}
 		}
-
-		// TODO(Jeanhaley) #2 make this into a case statement.
-		// catches message, and makes a choice on what to do with it.
-		if string(buf[:r-1]) == "ping" {
-			sessc <- fmt.Sprintf("(%v)sending: "+Gray+"pong"+Reset, cPort)
-			c.Write([]byte(Purple + fmt.Sprintf("pong\n") + Reset))
-		}
+		// Logs message received
 		sessc <- fmt.Sprintf("(%v)Received message: "+Purple+
 			"%v"+Reset, cPort, string(buf[:r-1]))
+
+		// Decision tree for handling individual messages
+		// Most functionality regarding handling user messages should be placed here.
+		// In the future this may be it's own function.
+		switch string(buf[:r-1]) {
+		case "ping":
+			func() {
+				sessc <- fmt.Sprintf("(%v)sending: "+Gray+"pong"+Reset, cPort)
+				c.Write([]byte(Purple + fmt.Sprintf("pong\n") + Reset))
+			}()
+		}
 	}
 }
 
