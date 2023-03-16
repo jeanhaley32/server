@@ -18,7 +18,6 @@ const (
 	buffersize = 1024        // Message Buffer size.
 	loggerTime = 30          // time in between server status check, in seconds.
 	// defining shell code used to set terminal string colors.
-	Reset  = "\033[0m"
 	Red    = "\033[31m"
 	Green  = "\033[32m"
 	Yellow = "\033[33m"
@@ -102,8 +101,7 @@ func sessionHandler(sessc chan string, errc chan error, logc chan string, c net.
 			}
 		}
 		// Logs message received
-		sessc <- fmt.Sprintf("(%v)Received message: "+Purple+
-			"%v"+Reset, cPort, string(buf[:r-1]))
+		sessc <- fmt.Sprintf("(%v)Received message: "+colorWrap(Purple, "%v"), cPort, string(buf[:r-1]))
 
 		// Decision tree for handling individual messages
 		// Most functionality regarding handling user messages should be placed here.
@@ -138,7 +136,7 @@ func eventHandler(sessc <-chan string, errc <-chan error, logc <-chan string) {
 			mwrap = colorWrap(Red, err.Error())
 		case <-time.After(loggerTime * time.Second):
 			// Log a message that no errors have occurred for loggerTime seconds
-			mwrap = fmt.Sprintf(Green+"No errors for %v seconds"+Reset, loggerTime)
+			mwrap = colorWrap(Green, fmt.Sprintf("No errors for %v seconds", loggerTime))
 		}
 		// Logs messages, with appropriate colors based on channel.
 		logger.Println(mwrap)
