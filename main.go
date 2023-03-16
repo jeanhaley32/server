@@ -18,7 +18,7 @@ const (
 	port       = "6000"      // Port to listen on
 	buffersize = 1024        // Message Buffer size.
 	loggerTime = 30          // time in between server status check, in seconds.
-	// defining unicode used to set string colors.
+	// defining shell code used to set terminal string colors.
 	Reset  = "\033[0m"
 	Red    = "\033[31m"
 	Green  = "\033[32m"
