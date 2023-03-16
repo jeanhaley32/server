@@ -15,7 +15,7 @@ import (
 const (
 	ip         = "127.0.0.1" // IP address
 	netp       = "tcp"       // network protocol
-	port       = ""          // Port to listen on
+	port       = "6000"      // Port to listen on
 	buffersize = 1024        // Message Buffer size.
 	loggerTime = 30          // time in between server status check, in seconds.
 	// defining unicode used to set string colors.
