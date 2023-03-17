@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/zs5460/art"
+	"github.com/common-nighthawk/go-figure"
 )
 
 const (
@@ -31,15 +31,19 @@ const (
 )
 
 var (
-	branding = art.String("JeanServ_2023")
+	branding = figure.NewColorFigure("JeanServ_2023", "", "Blue", true)
 )
 
 func main() {
+	for _, v := range branding.Slicify() {
+		fmt.Println(colorWrap(Blue, v))
+		time.Sleep(100 * time.Millisecond)
+	}
+
 	// creating channels for various modes of communication
 	errc := make(chan error)   // error channel - Red text
 	logc := make(chan string)  // general logging channel - Blue text
 	sessc := make(chan string) // session specific channel - Yellow text
-	fmt.Println(branding)
 	var wg sync.WaitGroup
 	wg.Add(2) // adding two goroutines
 	go func() {
@@ -83,7 +87,7 @@ func connectionsHandler(sessc chan string, errc chan error, logc chan string) er
 
 // Session handler handles individual sessions passed to it.
 func sessionHandler(sessc chan string, errc chan error, logc chan string, c net.Conn) {
-	c.Write([]byte(branding + "\n"))
+	c.Write([]byte(branding.ColorString()))
 	// splits client address into IP Addr, and Port list.
 	cAddr := strings.Split(c.RemoteAddr().String(), ":")
 	cIp := cAddr[0]                                                // isolate Client IP
@@ -124,11 +128,11 @@ func sessionHandler(sessc chan string, errc chan error, logc chan string, c net.
 		case m == "pene holes":
 			func() {
 				sessc <- fmt.Sprintf("(%v)sending: A secret message.", cPort)
-				c.Write([]byte(colorWrap(Red, "Get back to Rocket League. Sucks to Suck sucker. 8====D")))
+				c.Write([]byte(colorWrap(Red, "Get back to Rocket League. Sucks to Suck sucker.")))
 			}()
 		// Takes any message after "ascii:" and converts it to fancy ascii art.
 		case strings.Split(m, ":")[0] == "ascii":
-			c.Write([]byte(colorWrap(Blue, art.String(strings.Split(m, ":")[1])+"\n")))
+			c.Write([]byte(figure.NewColorFigure(strings.Split(m, ":")[1], "", "Blue", true).String() + "\n"))
 		}
 	}
 }
