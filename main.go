@@ -31,8 +31,8 @@ const (
 func main() {
 	// creating channels for various modes of communication
 	errc := make(chan error)   // error channel - Red text
-	logc := make(chan string)  // logging channel - Blue text
-	sessc := make(chan string) // session info channel - Yellow text
+	logc := make(chan string)  // general logging channel - Blue text
+	sessc := make(chan string) // session specific channel - Yellow text
 
 	var wg sync.WaitGroup
 	wg.Add(2) // adding two goroutines
@@ -111,6 +111,11 @@ func sessionHandler(sessc chan string, errc chan error, logc chan string, c net.
 			func() {
 				sessc <- fmt.Sprintf("(%v)sending: "+colorWrap(Gray, "pong"), cPort)
 				c.Write([]byte(colorWrap(Purple, "pong\n")))
+			}()
+		case "pene holes":
+			func() {
+				sessc <- fmt.Sprintf("(%v)sending: A secret message.", cPort)
+				c.Write([]byte(colorWrap(Red, "Get back to Rocket League. Sucks to Suck sucker. 8====D")))
 			}()
 		}
 	}
