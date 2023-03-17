@@ -31,7 +31,7 @@ const (
 )
 
 var (
-	branding = figure.NewColorFigure("JeanServ_2023", "smkeyboard", "Blue", true)
+	branding = figure.NewColorFigure("JeanServ 23", "nancyj-fancy", "Blue", true)
 	greeting = map[string]bool{
 		"hello": true,
 		"Hello": true,
