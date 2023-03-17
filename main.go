@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/zs5460/art"
 )
 
 const (
@@ -106,17 +108,20 @@ func sessionHandler(sessc chan string, errc chan error, logc chan string, c net.
 		// Decision tree for handling individual messages
 		// Most functionality regarding handling user messages should be placed here.
 		// In the future this may be it's own function.
-		switch string(buf[:r-1]) {
-		case "ping":
+		m := string(buf[:r-1])
+		switch {
+		case m == "ping":
 			func() {
 				sessc <- fmt.Sprintf("(%v)sending: "+colorWrap(Gray, "pong"), cPort)
 				c.Write([]byte(colorWrap(Purple, "pong\n")))
 			}()
-		case "pene holes":
+		case m == "pene holes":
 			func() {
 				sessc <- fmt.Sprintf("(%v)sending: A secret message.", cPort)
 				c.Write([]byte(colorWrap(Red, "Get back to Rocket League. Sucks to Suck sucker. 8====D")))
 			}()
+		case strings.Split(m, ":")[0] == "ascii":
+			c.Write([]byte(colorWrap(Blue, art.String(strings.Split(m, ":")[1]))))
 		}
 	}
 }
