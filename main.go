@@ -30,12 +30,16 @@ const (
 	White  = "\033[97m"
 )
 
+var (
+	branding = art.String("JeanServ_2023")
+)
+
 func main() {
 	// creating channels for various modes of communication
 	errc := make(chan error)   // error channel - Red text
 	logc := make(chan string)  // general logging channel - Blue text
 	sessc := make(chan string) // session specific channel - Yellow text
-
+	fmt.Println(branding)
 	var wg sync.WaitGroup
 	wg.Add(2) // adding two goroutines
 	go func() {
@@ -79,6 +83,7 @@ func connectionsHandler(sessc chan string, errc chan error, logc chan string) er
 
 // Session handler handles individual sessions passed to it.
 func sessionHandler(sessc chan string, errc chan error, logc chan string, c net.Conn) {
+	c.Write([]byte(branding + "\n"))
 	// splits client address into IP Addr, and Port list.
 	cAddr := strings.Split(c.RemoteAddr().String(), ":")
 	cIp := cAddr[0]                                                // isolate Client IP
@@ -121,7 +126,7 @@ func sessionHandler(sessc chan string, errc chan error, logc chan string, c net.
 				c.Write([]byte(colorWrap(Red, "Get back to Rocket League. Sucks to Suck sucker. 8====D")))
 			}()
 		case strings.Split(m, ":")[0] == "ascii":
-			c.Write([]byte(colorWrap(Blue, art.String(strings.Split(m, ":")[1]))))
+			c.Write([]byte(colorWrap(Blue, art.String(strings.Split(m, ":")[1])+"\n")))
 		}
 	}
 }
