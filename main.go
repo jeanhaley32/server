@@ -31,7 +31,15 @@ const (
 )
 
 var (
-	branding = figure.NewColorFigure("JeanServ_2023", "", "Blue", true)
+	branding = figure.NewColorFigure("JeanServ_2023", "smkeyboard", "Blue", true)
+	greeting = map[string]bool{
+		"hello": true,
+		"Hello": true,
+		"hi":    true,
+		"Hi":    true,
+		"Hey":   true,
+		"hey":   true,
+	}
 )
 
 func main() {
@@ -119,6 +127,11 @@ func sessionHandler(sessc chan string, errc chan error, logc chan string, c net.
 		// In the future this may be it's own function.
 		m := string(buf[:r-1])
 		switch {
+		case greeting[m]:
+			func() {
+				sessc <- fmt.Sprintf("(%v)sending: "+colorWrap(Gray, "Hi!"), cPort)
+				c.Write([]byte(colorWrap(Purple, "Hi!\n")))
+			}()
 		case m == "ping":
 			func() {
 				sessc <- fmt.Sprintf("(%v)sending: "+colorWrap(Gray, "pong"), cPort)
@@ -132,6 +145,7 @@ func sessionHandler(sessc chan string, errc chan error, logc chan string, c net.
 			}()
 		// Takes any message after "ascii:" and converts it to fancy ascii art.
 		case strings.Split(m, ":")[0] == "ascii":
+			sessc <- fmt.Sprintf("(%v)Returning Ascii Art.", cPort)
 			c.Write([]byte(figure.NewColorFigure(strings.Split(m, ":")[1], "", "Blue", true).String() + "\n"))
 		}
 	}
