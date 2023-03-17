@@ -120,11 +120,13 @@ func sessionHandler(sessc chan string, errc chan error, logc chan string, c net.
 				sessc <- fmt.Sprintf("(%v)sending: "+colorWrap(Gray, "pong"), cPort)
 				c.Write([]byte(colorWrap(Purple, "pong\n")))
 			}()
+		// They know what they did.
 		case m == "pene holes":
 			func() {
 				sessc <- fmt.Sprintf("(%v)sending: A secret message.", cPort)
 				c.Write([]byte(colorWrap(Red, "Get back to Rocket League. Sucks to Suck sucker. 8====D")))
 			}()
+		// Takes any message after "ascii:" and converts it to fancy ascii art.
 		case strings.Split(m, ":")[0] == "ascii":
 			c.Write([]byte(colorWrap(Blue, art.String(strings.Split(m, ":")[1])+"\n")))
 		}
