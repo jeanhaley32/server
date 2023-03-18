@@ -59,14 +59,14 @@ func main() {
 		wg.Done()                       // decrementing the counter when done
 	}()
 	go func() {
-		connectionsHandler(sessc, errc, logc)
+		connListener(sessc, errc, logc)
 		wg.Done() // decrementing the counter when done
 	}()
 	wg.Wait() // waiting for all goroutines to finish
 }
 
-// Connection Handler handles spinning off different sessions for each connection.
-func connectionsHandler(sessc chan string, errc chan error, logc chan string) error {
+// Connection Listener accepts and passes connections off to Connection Handler
+func connListener(sessc chan string, errc chan error, logc chan string) error {
 	// Create Listener bound to socket.
 	listener, err := net.Listen(netp, net.JoinHostPort(ip, port))
 	if err != nil {
@@ -88,13 +88,13 @@ func connectionsHandler(sessc chan string, errc chan error, logc chan string) er
 			errc <- err
 		}
 		// hands accepted connection off to a session handler go routine, and starts loop again.
-		go sessionHandler(sessc, errc, logc, conn)
+		go connectionHandler(sessc, errc, logc, conn)
 	}
 
 }
 
-// Session handler handles individual sessions passed to it.
-func sessionHandler(sessc chan string, errc chan error, logc chan string, c net.Conn) {
+// Connection Handler takes connections from listener, and processes read/writes
+func connectionHandler(sessc chan string, errc chan error, logc chan string, c net.Conn) {
 	c.Write([]byte(branding.ColorString()))
 	// splits client address into IP Addr, and Port list.
 	cAddr := strings.Split(c.RemoteAddr().String(), ":")
