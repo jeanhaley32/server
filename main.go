@@ -87,14 +87,14 @@ func connListener(sessc chan string, errc chan error, logc chan string) error {
 		if err != nil {
 			errc <- err
 		}
-		// hands accepted connection off to a session handler go routine, and starts loop again.
-		go connectionHandler(sessc, errc, logc, conn)
+		// hands accepted connection off to a connection handler go routine, and starts loop again.
+		go connHandler(sessc, errc, logc, conn)
 	}
 
 }
 
 // Connection Handler takes connections from listener, and processes read/writes
-func connectionHandler(sessc chan string, errc chan error, logc chan string, c net.Conn) {
+func connHandler(sessc chan string, errc chan error, logc chan string, c net.Conn) {
 	c.Write([]byte(branding.ColorString()))
 	// splits client address into IP Addr, and Port list.
 	cAddr := strings.Split(c.RemoteAddr().String(), ":")
