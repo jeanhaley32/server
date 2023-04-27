@@ -42,6 +42,33 @@ var (
 	}
 )
 
+// Defines state for an individual connection.
+type connection struct {
+	messageHistory [][]byte  // Message Histort
+	connectionId   string    // connection identifier. Just the connections Socket for now.
+	Conn           net.Conn  // connection objct
+	startTime      time.Time // Time of connection starting
+	LastMessage    struct {
+		Message []byte    // Actual Last Message
+		Time    time.Time // time last message was sent
+	}
+}
+
+type state struct {
+	connections []connection
+}
+
+func (s state) ActiveConnections() int {
+	return len(s.connections)
+}
+
+func (c connection) Init(conn net.Conn) {
+	// initial connectionid is local Addr Socket
+	c.connectionId = c.Conn.LocalAddr().String()
+	c.Conn = conn
+	c.startTime = time.Now()
+}
+
 func main() {
 	for _, v := range branding.Slicify() {
 		fmt.Println(colorWrap(Blue, v))
@@ -94,10 +121,10 @@ func connListener(sessc chan string, errc chan error, logc chan string) error {
 }
 
 // Connection Handler takes connections from listener, and processes read/writes
-func connHandler(sessc chan string, errc chan error, logc chan string, c net.Conn) {
-	c.Write([]byte(branding.ColorString()))
+func connHandler(sessc chan string, errc chan error, logc chan string, c connection) {
+	c.conn.Write([]byte(branding.ColorString()))
 	// splits client address into IP Addr, and Port list.
-	cAddr := strings.Split(c.RemoteAddr().String(), ":")
+	cAddr := strings.Split(c.connectionid, ":")
 	cIp := cAddr[0]                                                // isolate Client IP
 	cPort := cAddr[1]                                              // isolate Client Port.
 	sessc <- fmt.Sprintf("starting new session:%v:%v", cIp, cPort) // logs start of new session
@@ -105,7 +132,7 @@ func connHandler(sessc chan string, errc chan error, logc chan string, c net.Con
 	// defering closing function until we eescape from session handler.
 	defer func() {
 		logc <- fmt.Sprintf("closing %v:%v session", cPort, cIp)
-		c.Close()
+		c.conn.Close()
 	}()
 	for {
 		// read from connection, into buffer.
