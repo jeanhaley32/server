@@ -20,31 +20,51 @@ const (
 	buffersize = 1024        // Message Buffer size.
 	loggerTime = 6000        // time in between server status check, in seconds.
 	// defining shell code used to set terminal string colors.
-	Red    = "\033[31m"
-	Green  = "\033[32m"
-	Yellow = "\033[33m"
-	Blue   = "\033[34m"
-	Purple = "\033[35m"
-	Cyan   = "\033[36m"
-	Gray   = "\033[37m"
-	White  = "\033[97m"
 )
+
+// Color Enums
+const (
+	Red Color = iota
+	Green
+	Yellow
+	Blue
+	Purple
+	Cyan
+	Gray
+	White
+)
+
+func (c Color) Color() string {
+	switch s {
+		case Red:
+			return "\033[31m"
+		case Green:
+			return "\033[32m"
+		case Yellow:
+			return "\033[33m"
+		case Blue:
+			return "\033[34m"
+		case Purple:
+			return "\033[35m"
+		case Cyan:
+			return "\033[36m"
+		case Gray: 
+			return "\033[37m"
+		case white:
+			return "\033[97m"
+	}
+		return ""
+} 
+
+
 
 var (
 	branding = figure.NewColorFigure("JeanServ 23", "nancyj-fancy", "Blue", true)
-	greeting = map[string]bool{
-		"hello": true,
-		"Hello": true,
-		"hi":    true,
-		"Hi":    true,
-		"Hey":   true,
-		"hey":   true,
-	}
 )
 
 // Defines state for an individual connection.
 type connection struct {
-	messageHistory [][]byte  // Message Histort
+	messageHistory []message  // Message Histort
 	connectionId   string    // connection identifier. Just the connections Socket for now.
 	Conn           net.Conn  // connection objct
 	startTime      time.Time // Time of connection starting
@@ -54,8 +74,20 @@ type connection struct {
 	}
 }
 
+// representative of connections states
 type state struct {
 	connections []connection
+}
+
+// individual message received from connection.
+type message struct {
+	msg []byte // Single message as a list of bytes
+	t 	time.Time // Time Message was received
+}
+
+// 
+func (m message) Timestamp() {
+	return m.t.
 }
 
 func (s state) ActiveConnections() int {
