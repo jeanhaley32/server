@@ -106,15 +106,15 @@ func (s state) ActiveConnections() int {
 	return len(s.connections)
 }
 
-func (s state) AddConnection(c connection) {
-	for _, v := range s.connections {
-		if c.connectionId != v.connectionId {
-			return
-		}
-		c.connectionId = 
-	}
-	s.connections = append(s.connections, c)
-}
+// func (s state) AddConnection(c connection) {
+// 	for _, v := range s.connections {
+// 		if c.connectionId != v.connectionId {
+// 			return
+// 		}
+// 		c.connectionId =
+// 	}
+// 	s.connections = append(s.connections, c)
+// }
 
 // // Message "object"
 // // individual message received from connection.
