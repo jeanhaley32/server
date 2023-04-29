@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -22,7 +23,30 @@ const (
 	// defining shell code used to set terminal string colors.
 )
 
-// Color Enums
+// defining message type enum
+type msgPath int64
+
+const (
+	ClientMsg msgPath = iota
+	Error
+	System
+)
+
+func (m msgPath) Type() (string, error) {
+	switch m {
+	case ClientMsg:
+		return "clientmsg", nil // can this be tied to a channel?
+	case Error:
+		return "error", nil
+	case System:
+		return "system", nil
+	}
+	return "", errors.New("Invalid msg Type")
+}
+
+// defining Color Enums
+type Color int64
+
 const (
 	Red Color = iota
 	Green
@@ -35,28 +59,26 @@ const (
 )
 
 func (c Color) Color() string {
-	switch s {
-		case Red:
-			return "\033[31m"
-		case Green:
-			return "\033[32m"
-		case Yellow:
-			return "\033[33m"
-		case Blue:
-			return "\033[34m"
-		case Purple:
-			return "\033[35m"
-		case Cyan:
-			return "\033[36m"
-		case Gray: 
-			return "\033[37m"
-		case white:
-			return "\033[97m"
+	switch c {
+	case Red:
+		return "\033[31m"
+	case Green:
+		return "\033[32m"
+	case Yellow:
+		return "\033[33m"
+	case Blue:
+		return "\033[34m"
+	case Purple:
+		return "\033[35m"
+	case Cyan:
+		return "\033[36m"
+	case Gray:
+		return "\033[37m"
+	case White:
+		return "\033[97m"
 	}
-		return ""
-} 
-
-
+	return ""
+}
 
 var (
 	branding = figure.NewColorFigure("JeanServ 23", "nancyj-fancy", "Blue", true)
@@ -64,42 +86,50 @@ var (
 
 // Defines state for an individual connection.
 type connection struct {
-	messageHistory []message  // Message Histort
-	connectionId   string    // connection identifier. Just the connections Socket for now.
-	Conn           net.Conn  // connection objct
-	startTime      time.Time // Time of connection starting
-	LastMessage    struct {
+	// messageHistory []message // Message History
+	connectionId string   // connection identifier. Just the connections Socket for now.
+	Conn         net.Conn // connection objct
+	// startTime    time.Time // Time of connection starting
+	LastMessage struct {
 		Message []byte    // Actual Last Message
 		Time    time.Time // time last message was sent
 	}
 }
 
-// representative of connections states
-type state struct {
-	connections []connection
-}
-
-// individual message received from connection.
-type message struct {
-	msg []byte // Single message as a list of bytes
-	t 	time.Time // Time Message was received
-}
-
-// 
-func (m message) Timestamp() {
-	return m.t.
-}
-
-func (s state) ActiveConnections() int {
-	return len(s.connections)
-}
-
 func (c connection) Init(conn net.Conn) {
 	// initial connectionid is local Addr Socket
-	c.connectionId = c.Conn.LocalAddr().String()
 	c.Conn = conn
-	c.startTime = time.Now()
+	// c.connectionId = conn.LocalAddr().String()
+	// c.startTime = time.Now()
 }
+
+// Returns ip, and port of local address.
+func (c connection) GetAddrcomponents() (ip, port string) {
+	r := strings.Split(c.connectionId, ":")
+	return r[0], r[1]
+}
+
+// // State "object"
+// type state struct {
+// 	connections []connection // Array of Connections
+// }
+
+// func (s state) ActiveConnections() int {
+// 	return len(s.connections)
+// }
+
+// // Message "object"
+// // individual message received from connection.
+// type message struct {
+// 	msg []byte    // Single message as a list of bytes
+// 	t   time.Time // Time Message was received
+
+// }
+
+// // return 'unix time' timestamp from message receipt
+// func (m message) Timestamp() int64 {
+// 	return m.t.Unix()
+// }
 
 func main() {
 	for _, v := range branding.Slicify() {
@@ -137,7 +167,6 @@ func connListener(sessc chan string, errc chan error, logc chan string) error {
 
 	// logs what socket the listener is bound to.
 	logc <- fmt.Sprintf("binding Listener on socket %v", listener.Addr().String())
-
 	// handles incoming connectons.
 	for {
 		logc <- fmt.Sprintf("Starting new Connection handler")
@@ -146,32 +175,32 @@ func connListener(sessc chan string, errc chan error, logc chan string) error {
 		if err != nil {
 			errc <- err
 		}
+		var newConn connection
+		newConn.Init(conn)
 		// hands accepted connection off to a connection handler go routine, and starts loop again.
-		go connHandler(sessc, errc, logc, conn)
+		go connHandler(sessc, errc, logc, newConn)
 	}
 
 }
 
 // Connection Handler takes connections from listener, and processes read/writes
 func connHandler(sessc chan string, errc chan error, logc chan string, c connection) {
-	c.conn.Write([]byte(branding.ColorString()))
-	// splits client address into IP Addr, and Port list.
-	cAddr := strings.Split(c.connectionid, ":")
-	cIp := cAddr[0]                                                // isolate Client IP
-	cPort := cAddr[1]                                              // isolate Client Port.
-	sessc <- fmt.Sprintf("starting new session:%v:%v", cIp, cPort) // logs start of new session
-	buf := make([]byte, buffersize)                                // Create buffer
+	ip, port := c.GetAddrcomponents()
+	c.Conn.Write([]byte(branding.ColorString()))
+	// isolate Client Port.
+	sessc <- fmt.Sprintf("starting new session:%v:%v", ip, port) // logs start of new session
+	buf := make([]byte, buffersize)                              // Create buffer
 	// defering closing function until we eescape from session handler.
 	defer func() {
-		logc <- fmt.Sprintf("closing %v:%v session", cPort, cIp)
-		c.conn.Close()
+		logc <- fmt.Sprintf("closing %v:%v session", port, ip)
+		c.Conn.Close()
 	}()
 	for {
 		// read from connection, into buffer.
-		r, err := c.Read(buf)
+		r, err := c.Conn.Read(buf)
 		if err != nil {
 			if err == io.EOF {
-				sessc <- fmt.Sprintf("Received EOF from %v .", cPort)
+				sessc <- fmt.Sprintf("Received EOF from %v .", port)
 				return
 			} else {
 				errc <- err
@@ -179,33 +208,28 @@ func connHandler(sessc chan string, errc chan error, logc chan string, c connect
 			}
 		}
 		// Logs message received
-		sessc <- fmt.Sprintf("(%v)Received message: "+colorWrap(Purple, "%v"), cPort, string(buf[:r-1]))
+		sessc <- fmt.Sprintf("(%v)Received message: "+colorWrap(Purple, "%v"), port, string(buf[:r-1]))
 
 		// Decision tree for handling individual messages
 		// Most functionality regarding handling user messages should be placed here.
 		// In the future this may be it's own function.
 		m := string(buf[:r-1])
 		switch {
-		case greeting[m]:
-			func() {
-				sessc <- fmt.Sprintf("(%v)sending: "+colorWrap(Gray, "Hi!"), cPort)
-				c.Write([]byte(colorWrap(Purple, "Hi!\n")))
-			}()
 		case m == "ping":
 			func() {
-				sessc <- fmt.Sprintf("(%v)sending: "+colorWrap(Gray, "pong"), cPort)
-				c.Write([]byte(colorWrap(Purple, "pong\n")))
+				sessc <- fmt.Sprintf("(%v)sending: "+colorWrap(Gray, "pong"), port)
+				c.Conn.Write([]byte(colorWrap(Purple, "pong\n")))
 			}()
 		// They know what they did.
 		case m == "pene holes":
 			func() {
-				sessc <- fmt.Sprintf("(%v)sending: A secret message.", cPort)
-				c.Write([]byte(colorWrap(Red, "Get back to Rocket League. Sucks to Suck sucker.")))
+				sessc <- fmt.Sprintf("(%v)sending: A secret message.", port)
+				c.Conn.Write([]byte(colorWrap(Red, "Get back to Rocket League. Sucks to Suck sucker.")))
 			}()
 		// Takes any message after "ascii:" and converts it to fancy ascii art.
 		case strings.Split(m, ":")[0] == "ascii":
-			sessc <- fmt.Sprintf("(%v)Returning Ascii Art.", cPort)
-			c.Write([]byte(figure.NewColorFigure(strings.Split(m, ":")[1], "", "Blue", true).String() + "\n"))
+			sessc <- fmt.Sprintf("(%v)Returning Ascii Art.", port)
+			c.Conn.Write([]byte(figure.NewColorFigure(strings.Split(m, ":")[1], "", "Blue", true).String() + "\n"))
 		}
 	}
 }
@@ -238,7 +262,7 @@ func eventHandler(sessc <-chan string, errc <-chan error, logc <-chan string) {
 }
 
 // wraps strings in colors.
-func colorWrap(c, m string) string {
+func colorWrap(c Color, m string) string {
 	const Reset = "\033[0m"
-	return c + m + Reset
+	return c.Color() + m + Reset
 }
