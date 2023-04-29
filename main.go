@@ -96,12 +96,6 @@ type connection struct {
 	}
 }
 
-// Returns ip, and port of local address.
-func (c connection) GetAddrcomponents() (ip, port string) {
-	r := strings.Split(c.connectionId, ":")
-	return r[0], "unaccessable"
-}
-
 // // State "object"
 // type state struct {
 // 	connections []connection // Array of Connections
@@ -181,14 +175,13 @@ func connListener(sessc chan string, errc chan error, logc chan string) error {
 
 // Connection Handler takes connections from listener, and processes read/writes
 func connHandler(sessc chan string, errc chan error, logc chan string, c connection) {
-	ip, port := c.GetAddrcomponents()
 	c.Conn.Write([]byte(branding.ColorString()))
 	// isolate Client Port.
-	sessc <- fmt.Sprintf("starting new session:%v:%v", ip, port) // logs start of new session
-	buf := make([]byte, buffersize)                              // Create buffer
+	sessc <- fmt.Sprintf("starting new session:%v", c.connectionId) // logs start of new session
+	buf := make([]byte, buffersize)                                 // Create buffer
 	// defering closing function until we eescape from session handler.
 	defer func() {
-		logc <- fmt.Sprintf("closing %v:%v session", port, ip)
+		logc <- fmt.Sprintf("closing %v session", c.connectionId)
 		c.Conn.Close()
 	}()
 	for {
@@ -196,7 +189,7 @@ func connHandler(sessc chan string, errc chan error, logc chan string, c connect
 		r, err := c.Conn.Read(buf)
 		if err != nil {
 			if err == io.EOF {
-				sessc <- fmt.Sprintf("Received EOF from %v .", port)
+				sessc <- fmt.Sprintf("Received EOF from %v .", c.connectionId)
 				return
 			} else {
 				errc <- err
@@ -204,7 +197,7 @@ func connHandler(sessc chan string, errc chan error, logc chan string, c connect
 			}
 		}
 		// Logs message received
-		sessc <- fmt.Sprintf("(%v)Received message: "+colorWrap(Purple, "%v"), port, string(buf[:r-1]))
+		sessc <- fmt.Sprintf("(%v)Received message: "+colorWrap(Purple, "%v"), c.connectionId, string(buf[:r-1]))
 
 		// Decision tree for handling individual messages
 		// Most functionality regarding handling user messages should be placed here.
@@ -213,7 +206,7 @@ func connHandler(sessc chan string, errc chan error, logc chan string, c connect
 		switch {
 		case m == "ping":
 			func() {
-				sessc <- fmt.Sprintf("(%v)sending: "+colorWrap(Gray, "pong"), port)
+				sessc <- fmt.Sprintf("(%v)sending: "+colorWrap(Gray, "pong"), c.connectionId)
 				c.Conn.Write([]byte(colorWrap(Purple, "pong\n")))
 			}()
 		// They know what they did.
