@@ -19,7 +19,7 @@ const (
 	netp       = "tcp"       // network protocol
 	port       = "6000"      // Port to listen on
 	buffersize = 1024        // Message Buffer size.
-	loggerTime = 6000        // time in between server status check, in seconds.
+	loggerTime = 3000        // time in between server status check, in seconds.
 	// defining shell code used to set terminal string colors.
 )
 
@@ -106,15 +106,9 @@ func (s state) ActiveConnections() int {
 	return len(s.connections)
 }
 
-// func (s state) AddConnection(c connection) {
-// 	for _, v := range s.connections {
-// 		if c.connectionId != v.connectionId {
-// 			return
-// 		}
-// 		c.connectionId =
-// 	}
-// 	s.connections = append(s.connections, c)
-// }
+func (s state) AddConnection(c connection) {
+	s.connections = append(s.connections, c)
+}
 
 // // Message "object"
 // // individual message received from connection.
@@ -178,6 +172,7 @@ func connListener(sessc chan string, errc chan error, logc chan string) error {
 			connectionId: conn.RemoteAddr().String(),
 			startTime:    time.Now(),
 		}
+		currentstate.AddConnection(newConn)
 		// hands accepted connection off to a connection handler go routine, and starts loop again.
 		go connHandler(sessc, errc, logc, newConn)
 	}
@@ -254,7 +249,7 @@ func eventHandler(sessc <-chan string, errc <-chan error, logc <-chan string) {
 			mwrap = colorWrap(Red, err.Error())
 		case <-time.After(loggerTime * time.Second):
 			// Log a message that no errors have occurred for loggerTime seconds
-			mwrap = colorWrap(Green, fmt.Sprintf("No errors for %v seconds", loggerTime))
+			mwrap = colorWrap(Green, fmt.Sprintf("No errors for %v seconds, %v active connections", loggerTime, currentstate.ActiveConnections()))
 		}
 		// Logs messages, with appropriate colors based on channel.
 		logger.Println(mwrap)
