@@ -106,6 +106,14 @@ func (s *state) ActiveConnections() int {
 	return len(s.connections)
 }
 
+func (s *state) RemoveConnection(cn string) {
+	for i, c := range s.connections {
+		if c.connectionId == cn {
+			s.connections = append(s.connections[:i], s.connections[i+1:]...)
+		}
+	}
+}
+
 func (s *state) AddConnection(c *connection) {
 	s.connections = append(s.connections, c)
 }
@@ -155,7 +163,7 @@ func connListener(sessc chan string, errc chan error, logc chan string) error {
 	}
 
 	// defer closing of listener until we escape from connection handler.
-	defer func() { logc <- "closing connectionHandler"; listener.Close() }()
+	defer func() { logc <- "closing Listener"; listener.Close() }()
 
 	// logs what socket the listener is bound to.
 	logc <- fmt.Sprintf("binding Listener on socket %v", listener.Addr().String())
@@ -188,6 +196,7 @@ func connHandler(sessc chan string, errc chan error, logc chan string, c connect
 	// defering closing function until we eescape from session handler.
 	defer func() {
 		logc <- fmt.Sprintf("closing %v session", c.connectionId)
+		currentstate.RemoveConnection(c.connectionId)
 		c.Conn.Close()
 	}()
 	for {
