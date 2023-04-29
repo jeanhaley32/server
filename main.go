@@ -99,14 +99,14 @@ type connection struct {
 
 // State "object"
 type state struct {
-	connections []connection // Array of Connections
+	connections []*connection // Array of Connections
 }
 
 func (s state) ActiveConnections() int {
 	return len(s.connections)
 }
 
-func (s state) AddConnection(c connection) {
+func (s state) AddConnection(c *connection) {
 	s.connections = append(s.connections, c)
 }
 
@@ -172,7 +172,7 @@ func connListener(sessc chan string, errc chan error, logc chan string) error {
 			connectionId: conn.RemoteAddr().String(),
 			startTime:    time.Now(),
 		}
-		currentstate.AddConnection(newConn)
+		currentstate.AddConnection(&newConn)
 		// hands accepted connection off to a connection handler go routine, and starts loop again.
 		go connHandler(sessc, errc, logc, newConn)
 	}
