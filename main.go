@@ -99,14 +99,14 @@ type connection struct {
 
 // State "object"
 type state struct {
-	connections []*connection // Array of Connections
+	connections []*connection
 }
 
-func (s state) ActiveConnections() int {
+func (s *state) ActiveConnections() int {
 	return len(s.connections)
 }
 
-func (s state) AddConnection(c *connection) {
+func (s *state) AddConnection(c *connection) {
 	s.connections = append(s.connections, c)
 }
 
