@@ -87,26 +87,19 @@ var (
 // Defines state for an individual connection.
 type connection struct {
 	// messageHistory []message // Message History
-	connectionId string   // connection identifier. Just the connections Socket for now.
-	Conn         net.Conn // connection objct
-	// startTime    time.Time // Time of connection starting
-	LastMessage struct {
+	connectionId string    // connection identifier. Just the connections Socket for now.
+	Conn         net.Conn  // connection objct
+	startTime    time.Time // Time of connection starting
+	LastMessage  struct {
 		Message []byte    // Actual Last Message
 		Time    time.Time // time last message was sent
 	}
 }
 
-func (c connection) Init(conn net.Conn) {
-	// initial connectionid is local Addr Socket
-	c.Conn = conn
-	// c.connectionId = conn.LocalAddr().String()
-	// c.startTime = time.Now()
-}
-
 // Returns ip, and port of local address.
 func (c connection) GetAddrcomponents() (ip, port string) {
 	r := strings.Split(c.connectionId, ":")
-	return r[0], r[1]
+	return r[0], "unaccessable"
 }
 
 // // State "object"
@@ -163,20 +156,23 @@ func connListener(sessc chan string, errc chan error, logc chan string) error {
 	}
 
 	// defer closing of listener until we escape from connection handler.
-	defer func() { logc <- fmt.Sprintf("closing connectionHandler"); listener.Close() }()
+	defer func() { logc <- "closing connectionHandler"; listener.Close() }()
 
 	// logs what socket the listener is bound to.
 	logc <- fmt.Sprintf("binding Listener on socket %v", listener.Addr().String())
 	// handles incoming connectons.
 	for {
-		logc <- fmt.Sprintf("Starting new Connection handler")
+		logc <- "Starting new Connection handler"
 		// routine will hang here until a connection is accepted.
 		conn, err := listener.Accept()
 		if err != nil {
 			errc <- err
 		}
-		var newConn connection
-		newConn.Init(conn)
+		newConn := connection{
+			Conn:         conn,
+			connectionId: conn.LocalAddr().String(),
+			startTime:    time.Now(),
+		}
 		// hands accepted connection off to a connection handler go routine, and starts loop again.
 		go connHandler(sessc, errc, logc, newConn)
 	}
