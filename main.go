@@ -81,7 +81,8 @@ func (c Color) Color() string {
 }
 
 var (
-	branding = figure.NewColorFigure("JeanServ 23", "nancyj-fancy", "Blue", true)
+	branding     = figure.NewColorFigure("JeanServ 23", "nancyj-fancy", "Blue", true)
+	currentstate state
 )
 
 // Defines state for an individual connection.
@@ -96,14 +97,24 @@ type connection struct {
 	}
 }
 
-// // State "object"
-// type state struct {
-// 	connections []connection // Array of Connections
-// }
+// State "object"
+type state struct {
+	connections []connection // Array of Connections
+}
 
-// func (s state) ActiveConnections() int {
-// 	return len(s.connections)
-// }
+func (s state) ActiveConnections() int {
+	return len(s.connections)
+}
+
+func (s state) AddConnection(c connection) {
+	for _, v := range s.connections {
+		if c.connectionId != v.connectionId {
+			return
+		}
+		c.connectionId = 
+	}
+	s.connections = append(s.connections, c)
+}
 
 // // Message "object"
 // // individual message received from connection.
@@ -164,7 +175,7 @@ func connListener(sessc chan string, errc chan error, logc chan string) error {
 		}
 		newConn := connection{
 			Conn:         conn,
-			connectionId: conn.LocalAddr().String(),
+			connectionId: conn.RemoteAddr().String(),
 			startTime:    time.Now(),
 		}
 		// hands accepted connection off to a connection handler go routine, and starts loop again.
