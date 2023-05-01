@@ -14,3 +14,10 @@ __
  - using netcat: ```netcat localhost 3000``` (if port is 3000) will create a live session. 
  - It should spin off different handlers for individual connections, so you can connect to it more than once. 
  - It doesn't actually do anything, beyond responding with "pong" if you send it "ping"
+
+## Future Plans
+ __ 
+ 
+ I am looking into adding logging, and more functionality. Here is a mock up diagram of what this may look like.
+ 
+ [system diagram](https://viewer.diagrams.net/?border=0&tags=%7B%7D&highlight=0000ff&edit=_blank&layers=1&nav=1&open=G1Cjb2gmoYRY4uXZJaSir33Fg7CjpeOJx3)
