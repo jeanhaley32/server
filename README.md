@@ -4,8 +4,8 @@ This is where i'm storing a simple test service that i'm creating as I learn mor
 Right now, This script binds a listener to localhost on an arbitrary port, and then logs to terminal some status messages, and echo back any messages sent to it. 
 I may tack on more functionality as I continue learning. 
 
-## If you want to run this, it will start a listener on localhost and log what socket bound to, to the terminal so you can connect to it. 
-### You can communicate with it by
+## Directions
+### If you want to run this, it will start a listener on localhost and log what socket bound to, to the terminal so you can connect to it. You can communicate with it by
  - use "go mod tidy" to download third party dependencies.
  - using netcat: ```netcat localhost 3000``` (if port is 3000) will create a live session. 
  - It should spin off different handlers for individual connections, so you can connect to it more than once. 
