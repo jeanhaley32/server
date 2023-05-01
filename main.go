@@ -107,11 +107,8 @@ func (s *state) ActiveConnections() int {
 }
 
 func (s *state) RemoveConnection(cn string) {
-	logger := log.New(os.Stdout, "", log.LstdFlags)
-	logger.Printf("Removing Connection %v\n", cn)
 	for i, c := range s.connections {
 		if c.connectionId == cn {
-			logger.Printf("Found connection @ %v, ID: %v\n", i, c)
 			s.connections = append(s.connections[:i], s.connections[i+1:]...)
 		}
 	}
