@@ -16,7 +16,6 @@ __
  - It doesn't actually do anything, beyond responding with "pong" if you send it "ping"
 
 ## Future Plans
- __ 
  
  I am looking into adding logging, and more functionality. Here is a mock up diagram of what this may look like.
  
