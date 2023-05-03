@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -52,24 +51,29 @@ const (
 )
 
 // Returns msg type.
-func (m MsgEnumType) Type() (string, error) {
+func (m MsgEnumType) Type() string {
 	switch m {
 	case Client:
-		return "clientmsg", nil
+		return "clientmsg"
 	case Error:
-		return "error", nil
+		return "error"
 	case System:
-		return "system", nil
+		return "system"
 	}
-	return "", errors.New("invalid msg type")
+	return "system"
 }
 
 // Returns msg type appropriate Global Channel
-func (m MsgEnumType) GlobalChannel() (ch, error) {
-	if int(m) < len(GlobalChannels) {
-		return GlobalChannels[m], nil
+func (m MsgEnumType) GlobalChannel() ch {
+	switch m.Type() {
+	case "clientmsg":
+		return GlobalChannels[Client]
+	case "error":
+		return GlobalChannels[Error]
+	case "system":
+		return GlobalChannels[System]
 	}
-	return nil, errors.New("no such global channel")
+	return nil
 }
 
 // defining Color Enums
@@ -162,30 +166,33 @@ func (m message) Timestamp() int64 {
 }
 
 func main() {
+	fmt.Println("Testing: Begining main.")
 	for _, v := range branding.Slicify() {
 		fmt.Println(colorWrap(Blue, v))
 		time.Sleep(100 * time.Millisecond)
 	}
-
-	// creating channels for various modes of communication
-	errc := make(chan error)   // error channel - Red text
-	logc := make(chan string)  // general logging channel - Blue text
-	sessc := make(chan string) // session specific channel - Yellow text
+	fmt.Println("Testing: starting goroutines")
 	var wg sync.WaitGroup
 	wg.Add(2) // adding two goroutines
 	go func() {
-		eventHandler(sessc, errc, logc) // starting the Event Handler go routine
-		wg.Done()                       // decrementing the counter when done
+		eventHandler() // starting the Event Handler go routine
+		wg.Done()      // decrementing the counter when done
 	}()
+	fmt.Println("Testing: Finished Creating Event handler")
 	go func() {
-		connListener(sessc, errc, logc)
+		connListener()
 		wg.Done() // decrementing the counter when done
 	}()
+	fmt.Println("Testing: Finished creating Connection Listener.")
+	fmt.Printf("System channel type: %v\n", System.GlobalChannel())
+	fmt.Printf("Error channel type: %v\n", Error.GlobalChannel())
+	fmt.Printf("Client channel type: %v\n", Client.GlobalChannel())
 	wg.Wait() // waiting for all goroutines to finish
 }
 
 // Connection Listener accepts and passes connections off to Connection Handler
-func connListener(sessc chan string, errc chan error, logc chan string) error {
+func connListener() error {
+	fmt.Println("Testing: Connection Listener Started")
 	// Create Listener bound to socket.
 	listener, err := net.Listen(netp, net.JoinHostPort(ip, port))
 	if err != nil {
@@ -193,17 +200,17 @@ func connListener(sessc chan string, errc chan error, logc chan string) error {
 	}
 
 	// defer closing of listener until we escape from connection handler.
-	defer func() { logc <- "closing Listener"; listener.Close() }()
+	defer func() { System.GlobalChannel() <- "closing Listener"; listener.Close() }()
 
 	// logs what socket the listener is bound to.
-	logc <- fmt.Sprintf("binding Listener on socket %v", listener.Addr().String())
+	System.GlobalChannel() <- fmt.Sprintf("binding Listener on socket %v", listener.Addr().String())
 	// handles incoming connectons.
 	for {
-		logc <- "Starting new Connection handler"
+		System.GlobalChannel() <- "Starting new Connection handler"
 		// routine will hang here until a connection is accepted.
 		conn, err := listener.Accept()
 		if err != nil {
-			errc <- err
+			Error.GlobalChannel() <- err
 		}
 		newConn := connection{
 			Conn:         conn,
@@ -212,20 +219,21 @@ func connListener(sessc chan string, errc chan error, logc chan string) error {
 		}
 		currentstate.AddConnection(&newConn)
 		// hands accepted connection off to a connection handler go routine, and starts loop again.
-		go connHandler(sessc, errc, logc, newConn)
+		go connHandler(newConn)
 	}
 
 }
 
 // Connection Handler takes connections from listener, and processes read/writes
-func connHandler(sessc chan string, errc chan error, logc chan string, c connection) {
+func connHandler(c connection) {
+	fmt.Println("Testing: Connection Handler started")
 	c.Conn.Write([]byte(branding.ColorString()))
 	// isolate Client Port.
-	sessc <- fmt.Sprintf("starting new session:%v", c.connectionId) // logs start of new session
-	buf := make([]byte, buffersize)                                 // Create buffer
+	Client.GlobalChannel() <- fmt.Sprintf("starting new session:%v", c.connectionId) // logs start of new session
+	buf := make([]byte, buffersize)                                                  // Create buffer
 	// defering closing function until we eescape from session handler.
 	defer func() {
-		logc <- fmt.Sprintf("closing %v session", c.connectionId)
+		System.GlobalChannel() <- fmt.Sprintf("closing %v session", c.connectionId)
 		currentstate.RemoveConnection(c.connectionId)
 		c.Conn.Close()
 	}()
@@ -234,10 +242,10 @@ func connHandler(sessc chan string, errc chan error, logc chan string, c connect
 		r, err := c.Conn.Read(buf)
 		if err != nil {
 			if err == io.EOF {
-				sessc <- fmt.Sprintf("Received EOF from %v .", c.connectionId)
+				Client.GlobalChannel() <- fmt.Sprintf("Received EOF from %v .", c.connectionId)
 				return
 			} else {
-				errc <- err
+				Error.GlobalChannel() <- err
 				return
 			}
 		}
@@ -251,18 +259,18 @@ func connHandler(sessc chan string, errc chan error, logc chan string, c connect
 		c.messageHistory = append(c.messageHistory, m)
 
 		// Logs message received
-		sessc <- fmt.Sprintf("(%v)Received message: "+colorWrap(Purple, "%v"), c.connectionId, string(c.LastMessage().msg))
+		Client.GlobalChannel() <- fmt.Sprintf("(%v)Received message: "+colorWrap(Purple, "%v"), c.connectionId, string(c.LastMessage().msg))
 
 		// Respond to message object
 		switch {
 		case string(m.msg) == "ping":
 			func() {
-				sessc <- fmt.Sprintf("(%v)sending: "+colorWrap(Gray, "pong"), c.connectionId)
+				Client.GlobalChannel() <- fmt.Sprintf("(%v)sending: "+colorWrap(Gray, "pong"), c.connectionId)
 				c.Conn.Write([]byte(colorWrap(Purple, "pong\n")))
 			}()
 		// Catches "ascii:" and makes that ascii art.
 		case strings.Split(string(m.msg), ":")[0] == "ascii":
-			sessc <- fmt.Sprintf("(%v)Returning Ascii Art.", port)
+			Client.GlobalChannel() <- fmt.Sprintf("(%v)Returning Ascii Art.", port)
 			c.Conn.Write([]byte(
 				figure.NewColorFigure(
 					strings.Split(string(m.msg), ":")[1],
@@ -273,8 +281,9 @@ func connHandler(sessc chan string, errc chan error, logc chan string, c connect
 }
 
 // Event Handler handles events such as connection shutdowns and error logging.
-func eventHandler(sessc <-chan string, errc <-chan error, logc <-chan string) {
+func eventHandler() {
 	// Create a custom logger
+	fmt.Println("testing: Event Handler running")
 	logger := log.New(os.Stdout, "", log.LstdFlags)
 	mwrap := ""
 	// defering exit routine for eventHandler.
@@ -284,12 +293,12 @@ func eventHandler(sessc <-chan string, errc <-chan error, logc <-chan string) {
 		select {
 		// Wraps sessc, logc, or errc channel messages in their individual colors.
 		// log = blue, sess = yellow, and err = red, server status messages = green.
-		case log := <-logc:
-			mwrap = colorWrap(Blue, log)
-		case sess := <-sessc:
-			mwrap = colorWrap(Yellow, sess)
-		case err := <-errc:
-			mwrap = colorWrap(Red, err.Error())
+		case log := <-System.GlobalChannel():
+			mwrap = colorWrap(Blue, log.(string))
+		case cli := <-Client.GlobalChannel():
+			mwrap = colorWrap(Yellow, cli.(string))
+		case err := <-Error.GlobalChannel():
+			mwrap = colorWrap(Red, err.(error).Error())
 		case <-time.After(loggerTime * time.Second):
 			// Log a message that no errors have occurred for loggerTime seconds
 			mwrap = colorWrap(Green, fmt.Sprintf(
