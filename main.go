@@ -24,24 +24,31 @@ const (
 )
 
 // defining message type enum
-type msgPath int64
+type GloballogChannel int64
 
 const (
-	ClientMsg msgPath = iota
+	Client GloballogChannel = iota
 	Error
 	System
 )
 
-func (m msgPath) Type() (string, error) {
+func (m GloballogChannel) Type() (string, error) {
 	switch m {
-	case ClientMsg:
+	case Client:
 		return "clientmsg", nil // can this be tied to a channel?
 	case Error:
 		return "error", nil
 	case System:
 		return "system", nil
 	}
-	return "", errors.New("Invalid msg Type")
+	return "", errors.New("invalid msg type")
+}
+
+// This will eventually return the appriate channel from a
+// bundle of channels-
+func (m GloballogChannel) Channel() (chan string, error) {
+	c := make(chan string)
+	return c, nil
 }
 
 // defining Color Enums
@@ -87,11 +94,11 @@ var (
 
 // Defines state for an individual connection.
 type connection struct {
-	// messageHistory []message // Message History
-	connectionId string    // connection identifier. Just the connections Socket for now.
-	Conn         net.Conn  // connection objct
-	startTime    time.Time // Time of connection starting
-	LastMessage  struct {
+	messageHistory []message // Message History
+	connectionId   string    // connection identifier. Just the connections Socket for now.
+	Conn           net.Conn  // connection objct
+	startTime      time.Time // Time of connection starting
+	LastMessage    struct {
 		Message []byte    // Actual Last Message
 		Time    time.Time // time last message was sent
 	}
@@ -118,18 +125,18 @@ func (s *state) AddConnection(c *connection) {
 	s.connections = append(s.connections, c)
 }
 
-// // Message "object"
-// // individual message received from connection.
-// type message struct {
-// 	msg []byte    // Single message as a list of bytes
-// 	t   time.Time // Time Message was received
+// Message "object"
+// individual message received from connection.
+type message struct {
+	msg []byte    // Single message as a list of bytes
+	t   time.Time // Time Message was received
 
-// }
+}
 
 // // return 'unix time' timestamp from message receipt
-// func (m message) Timestamp() int64 {
-// 	return m.t.Unix()
-// }
+func (m message) Timestamp() int64 {
+	return m.t.Unix()
+}
 
 func main() {
 	for _, v := range branding.Slicify() {
@@ -214,26 +221,25 @@ func connHandler(sessc chan string, errc chan error, logc chan string, c connect
 		// Logs message received
 		sessc <- fmt.Sprintf("(%v)Received message: "+colorWrap(Purple, "%v"), c.connectionId, string(buf[:r-1]))
 
-		// Decision tree for handling individual messages
-		// Most functionality regarding handling user messages should be placed here.
-		// In the future this may be it's own function.
-		m := string(buf[:r-1])
+		// Package user message into message object
+		m := message{
+			msg: buf[:r-1],
+			t:   time.Now(),
+		}
+		// add message object to connection history
+		c.messageHistory = append(c.messageHistory, m)
+
+		// Respond to message object
 		switch {
-		case m == "ping":
+		case string(m.msg) == "ping":
 			func() {
 				sessc <- fmt.Sprintf("(%v)sending: "+colorWrap(Gray, "pong"), c.connectionId)
 				c.Conn.Write([]byte(colorWrap(Purple, "pong\n")))
 			}()
-		// They know what they did.
-		case m == "pene holes":
-			func() {
-				sessc <- fmt.Sprintf("(%v)sending: A secret message.", port)
-				c.Conn.Write([]byte(colorWrap(Red, "Get back to Rocket League. Sucks to Suck sucker.")))
-			}()
-		// Takes any message after "ascii:" and converts it to fancy ascii art.
-		case strings.Split(m, ":")[0] == "ascii":
+		// Catches "ascii:" and makes that ascii art.
+		case strings.Split(string(m.msg), ":")[0] == "ascii":
 			sessc <- fmt.Sprintf("(%v)Returning Ascii Art.", port)
-			c.Conn.Write([]byte(figure.NewColorFigure(strings.Split(m, ":")[1], "", "Blue", true).String() + "\n"))
+			c.Conn.Write([]byte(figure.NewColorFigure(strings.Split(string(m.msg), ":")[1], "", "Blue", true).String() + "\n"))
 		}
 	}
 }
