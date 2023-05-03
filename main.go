@@ -27,10 +27,12 @@ const (
 type ch chan interface{}
 
 // Define our three global log channels
+//
+//	client - Logs from individual connections.
+//	error  - Error logs.
+//	sys		- System logs.
 var (
-	clientChan ch
-	errorChan  ch
-	sysChan    ch
+	clientChan, errorChan, sysChan ch
 )
 
 // Bundle Global channels into an array
@@ -66,7 +68,7 @@ func (m globalLogChanEnumType) Channel() (ch, error) {
 	if int(m) < len(GlobalChannels) {
 		return GlobalChannels[m], nil
 	}
-	return nil, errors.New("No Such Global Channel")
+	return nil, errors.New("no such global channel")
 }
 
 // defining Color Enums
@@ -260,12 +262,14 @@ func connHandler(sessc chan string, errc chan error, logc chan string, c connect
 		// Catches "ascii:" and makes that ascii art.
 		case strings.Split(string(m.msg), ":")[0] == "ascii":
 			sessc <- fmt.Sprintf("(%v)Returning Ascii Art.", port)
-			c.Conn.Write([]byte(figure.NewColorFigure(strings.Split(string(m.msg), ":")[1], "", "Blue", true).String() + "\n"))
+			c.Conn.Write([]byte(
+				figure.NewColorFigure(
+					strings.Split(string(m.msg), ":")[1],
+					"", "Blue", true).String() +
+					"\n"))
 		}
 	}
 }
-
-func GlobalLogWriter(Channel []chan string)
 
 // Event Handler handles events such as connection shutdowns and error logging.
 func eventHandler(sessc <-chan string, errc <-chan error, logc <-chan string) {
@@ -287,7 +291,10 @@ func eventHandler(sessc <-chan string, errc <-chan error, logc <-chan string) {
 			mwrap = colorWrap(Red, err.Error())
 		case <-time.After(loggerTime * time.Second):
 			// Log a message that no errors have occurred for loggerTime seconds
-			mwrap = colorWrap(Green, fmt.Sprintf("No errors for %v seconds, %v active connections", loggerTime, currentstate.ActiveConnections()))
+			mwrap = colorWrap(Green, fmt.Sprintf(
+				"No errors for %v seconds, %v active connections",
+				loggerTime,
+				currentstate.ActiveConnections()))
 		}
 		// Logs messages, with appropriate colors based on channel.
 		logger.Println(mwrap)
