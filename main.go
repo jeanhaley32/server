@@ -275,7 +275,7 @@ func connHandler(c connection) {
 					"", "Blue", true).String() +
 					"\n"))
 		default:
-			c.Conn.Write(m.msg)
+			c.Conn.Write(append(m.msg, []byte("\n")...))
 		}
 	}
 }
