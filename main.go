@@ -23,19 +23,36 @@ const (
 	// defining shell code used to set terminal string colors.
 )
 
-// defining message type enum
-type GloballogChannel int64
+// create a channel type with blank interface
+type ch chan interface{}
+
+// Define our three global log channels
+var (
+	clientChan ch
+	errorChan  ch
+	sysChan    ch
+)
+
+// Bundle Global channels into an array
+var GlobalChannels = []ch{
+	clientChan,
+	errorChan,
+	sysChan,
+}
+
+// define a type for global log channel enums
+type globalLogChanEnumType int64
 
 const (
-	Client GloballogChannel = iota
+	Client globalLogChanEnumType = iota
 	Error
 	System
 )
 
-func (m GloballogChannel) Type() (string, error) {
+func (m globalLogChanEnumType) Type() (string, error) {
 	switch m {
 	case Client:
-		return "clientmsg", nil // can this be tied to a channel?
+		return "clientmsg", nil
 	case Error:
 		return "error", nil
 	case System:
@@ -44,11 +61,12 @@ func (m GloballogChannel) Type() (string, error) {
 	return "", errors.New("invalid msg type")
 }
 
-// This will eventually return the appriate channel from a
-// bundle of channels-
-func (m GloballogChannel) Channel() (chan string, error) {
-	c := make(chan string)
-	return c, nil
+// returns the appropriate Global Channel
+func (m globalLogChanEnumType) Channel() (ch, error) {
+	if int(m) < len(GlobalChannels) {
+		return GlobalChannels[m], nil
+	}
+	return nil, errors.New("No Such Global Channel")
 }
 
 // defining Color Enums
@@ -246,6 +264,8 @@ func connHandler(sessc chan string, errc chan error, logc chan string, c connect
 		}
 	}
 }
+
+func GlobalLogWriter(Channel []chan string)
 
 // Event Handler handles events such as connection shutdowns and error logging.
 func eventHandler(sessc <-chan string, errc <-chan error, logc <-chan string) {
