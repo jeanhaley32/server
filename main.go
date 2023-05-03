@@ -131,7 +131,7 @@ type connection struct {
 
 // Returns last message bundled in messageHistory
 func (c *connection) LastMessage() message {
-	return c.messageHistory[len(c.messageHistory-1)]
+	return c.messageHistory[len(c.messageHistory)-1]
 }
 
 // State "object"
