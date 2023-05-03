@@ -98,10 +98,12 @@ type connection struct {
 	connectionId   string    // connection identifier. Just the connections Socket for now.
 	Conn           net.Conn  // connection objct
 	startTime      time.Time // Time of connection starting
-	LastMessage    struct {
-		Message []byte    // Actual Last Message
-		Time    time.Time // time last message was sent
-	}
+
+}
+
+// Returns last message bundled in messageHistory
+func (c *connection) LastMessage() message {
+	return c.messageHistory[len(c.messageHistory)+1]
 }
 
 // State "object"
@@ -218,8 +220,6 @@ func connHandler(sessc chan string, errc chan error, logc chan string, c connect
 				return
 			}
 		}
-		// Logs message received
-		sessc <- fmt.Sprintf("(%v)Received message: "+colorWrap(Purple, "%v"), c.connectionId, string(buf[:r-1]))
 
 		// Package user message into message object
 		m := message{
@@ -228,6 +228,9 @@ func connHandler(sessc chan string, errc chan error, logc chan string, c connect
 		}
 		// add message object to connection history
 		c.messageHistory = append(c.messageHistory, m)
+
+		// Logs message received
+		sessc <- fmt.Sprintf("(%v)Received message: "+colorWrap(Purple, "%v"), c.connectionId, string(c.LastMessage().msg))
 
 		// Respond to message object
 		switch {
