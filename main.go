@@ -275,7 +275,7 @@ func connHandler(c connection) {
 					"", "Blue", true).String() +
 					"\n"))
 		default:
-			Client.WriteToChannel(c.LastMessage().msg)
+			Client.WriteToChannel(string(c.LastMessage().msg))
 		}
 	}
 }
