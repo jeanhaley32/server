@@ -42,16 +42,17 @@ var GlobalChannels = []ch{
 	sysChan,
 }
 
-// define a type for global log channel enums
-type globalLogChanEnumType int64
+// Defining type used to define a message route and purpose
+type MsgEnumType int64
 
 const (
-	Client globalLogChanEnumType = iota
+	Client MsgEnumType = iota
 	Error
 	System
 )
 
-func (m globalLogChanEnumType) Type() (string, error) {
+// Returns msg type.
+func (m MsgEnumType) Type() (string, error) {
 	switch m {
 	case Client:
 		return "clientmsg", nil
@@ -63,8 +64,8 @@ func (m globalLogChanEnumType) Type() (string, error) {
 	return "", errors.New("invalid msg type")
 }
 
-// returns the appropriate Global Channel
-func (m globalLogChanEnumType) Channel() (ch, error) {
+// Returns msg type appropriate Global Channel
+func (m MsgEnumType) GlobalChannel() (ch, error) {
 	if int(m) < len(GlobalChannels) {
 		return GlobalChannels[m], nil
 	}
