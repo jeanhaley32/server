@@ -47,16 +47,15 @@ const (
 func (m MsgEnumType) Type() string {
 	switch m {
 	case Client:
-		return "clientmsg"
+		return "cli"
 	case Error:
-		return "error"
+		return "err"
 	case System:
-		return "system"
+		return "sys"
 	}
-	return "system"
+	return "sys"
 }
 
-// Returns appropriate channel
 func (m MsgEnumType) GetChannel() ch {
 	switch m {
 	case Client:
@@ -124,17 +123,51 @@ var (
 type connection struct {
 	messageHistory []message // Message History
 	connectionId   string    // connection identifier. Just the connections Socket for now.
-	Conn           net.Conn  // connection objct
+	conn           net.Conn  // connection objct
 	startTime      time.Time // Time of connection starting
-
 }
 
 // Returns last message bundled in messageHistory
-func (c *connection) LastMessage() message {
+func (c connection) LastMessage() message {
 	return c.messageHistory[len(c.messageHistory)-1]
 }
 
-// State "object"
+// Exposes net.Conn Read method
+func (c connection) Read(buf *[]byte) (int, error) {
+	return c.conn.Read(*buf)
+}
+
+// Exposes net.Conn Write method
+func (c *connection) Write(buf *[]byte) (int, error) {
+	return c.conn.Write(*buf)
+}
+
+// Exposes net.Conn Close method
+func (c *connection) Close() error {
+	return c.conn.Close()
+}
+
+// Appends message to message history
+func (c *connection) AppendHistory(m message) {
+	c.messageHistory = append(c.messageHistory, m)
+}
+
+// exposes ConnectionId
+func (c connection) ConnectionId() string {
+	return c.connectionId
+}
+
+// Defines interface needed for connection handler
+type ConnectionHandler interface {
+	Read(buf *[]byte) (n int, err error)
+	Write(buf *[]byte) (n int, err error)
+	Close() error
+	LastMessage() message
+	AppendHistory(message)
+	ConnectionId() string
+}
+
+// State is used to derive over-all state of connections
 type state struct {
 	connections []*connection
 }
@@ -212,71 +245,68 @@ func connListener() error {
 			Error.WriteToChannel(err)
 		}
 		newConn := connection{
-			Conn:         conn,
+			conn:         conn,
 			connectionId: conn.RemoteAddr().String(),
 			startTime:    time.Now(),
 		}
 		currentstate.AddConnection(&newConn)
 		// hands accepted connection off to a connection handler go routine, and starts loop again.
-		go connHandler(newConn)
+		go connHandler(&newConn)
 	}
 
 }
 
 // Connection Handler takes connections from listener, and processes read/writes
-func connHandler(c connection) {
-	c.Conn.Write([]byte(branding.ColorString()))
+func connHandler(conn ConnectionHandler) {
+	branding := []byte(branding.ColorString())
+	conn.Write(&branding)
 	// isolate Client Port.
-	Client.WriteToChannel(fmt.Sprintf("starting new session:%v", c.connectionId)) // logs start of new session
-	buf := make([]byte, buffersize)                                               // Create buffer
+	Client.WriteToChannel(fmt.Sprintf("starting new session:%v", conn.ConnectionId())) // logs start of new session
+	buf := make([]byte, buffersize)                                                    // Create buffer
 	// defering closing function until we eescape from session handler.
 	defer func() {
-		System.WriteToChannel(fmt.Sprintf("closing %v session", c.connectionId))
-		currentstate.RemoveConnection(c.connectionId)
-		c.Conn.Close()
+		System.WriteToChannel(fmt.Sprintf("closing %v session", conn.ConnectionId()))
+		// TODO(JeanHaley) Create a state handler that can close this for us.
+		// we should send a signal through an explicit connection channel to
+		// the state handler that then tells it to close this connection and
+		// pops it from the list of active connections.
+		currentstate.RemoveConnection(conn.ConnectionId())
+		conn.Close()
 	}()
 	for {
-		// read from connection, into buffer.
-		r, err := c.Conn.Read(buf)
+		r, err := conn.Read(&buf) // Write Client message to buffer
 		if err != nil {
 			if err == io.EOF {
-				Client.WriteToChannel(fmt.Sprintf("Received EOF from %v .", c.connectionId))
+				Client.WriteToChannel(fmt.Sprintf("Received EOF from %v .", conn.ConnectionId()))
 				return
 			} else {
 				Error.WriteToChannel(err)
 				return
 			}
 		}
-
-		// Package user message into message object
-		m := message{
-			msg: buf[:r-1],
-			t:   time.Now(),
-		}
-		// add message object to connection history
-		c.messageHistory = append(c.messageHistory, m)
+		conn.AppendHistory(message{msg: buf[:r-1], t: time.Now()}) // saves client messgae to message history
 
 		// Logs message received
-		Client.WriteToChannel(fmt.Sprintf("(%v)Received message: "+colorWrap(Purple, "%v"), c.connectionId, string(c.LastMessage().msg)))
-
+		Client.WriteToChannel(fmt.Sprintf("(%v)Received message: "+colorWrap(Purple, "%v"), conn.ConnectionId(), string(conn.LastMessage().msg)))
+		cmsg := []byte("")
 		// Respond to message object
 		switch {
-		case string(m.msg) == "ping":
-			func() {
-				Client.WriteToChannel(fmt.Sprintf("(%v)sending: "+colorWrap(Gray, "pong"), c.connectionId))
-				c.Conn.Write([]byte(colorWrap(Purple, "pong\n")))
-			}()
+		case string(conn.LastMessage().msg) == "ping":
+			Client.WriteToChannel(fmt.Sprintf("(%v)sending: "+colorWrap(Gray, "pong"), conn.ConnectionId))
+			cmsg = []byte(colorWrap(Purple, "pong\n"))
 		// Catches "ascii:" and makes that ascii art.
-		case strings.Split(string(m.msg), ":")[0] == "ascii":
-			Client.WriteToChannel(fmt.Sprintf("(%v)Returning Ascii Art.", port))
-			c.Conn.Write([]byte(
+		case strings.Split(string(conn.LastMessage().msg), ":")[0] == "ascii":
+			Client.WriteToChannel(fmt.Sprintf("(%v)Returning Ascii Art.", port)) // Logs ascii art message to server
+			cmsg = []byte(
 				figure.NewColorFigure(
-					strings.Split(string(m.msg), ":")[1],
+					strings.Split(string(conn.LastMessage().msg), ":")[1],
 					"", "Blue", true).String() +
-					"\n"))
+					"\n") // Sends an Ascii art version of user's message back to user.
 		default:
-			c.Conn.Write(append(m.msg, []byte("\n")...))
+			cmsg = []byte("Message Received")
 		}
+		cmsg = append(cmsg, []byte("\n")...)
+		conn.Write(&cmsg)
 	}
 }
 
