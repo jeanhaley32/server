@@ -19,7 +19,6 @@ const (
 	port       = "6000"      // Port to listen on
 	buffersize = 1024        // Message Buffer size.
 	loggerTime = 120         // time in between server status check, in seconds.
-	// defining shell code used to set terminal string colors.
 )
 
 // create a channel type with blank interface
