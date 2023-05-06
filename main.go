@@ -22,7 +22,7 @@ const (
 )
 
 // create a channel type with blank interface
-type ch chan interface{}
+type ch chan message
 
 // Define our three global log channels
 //
@@ -67,9 +67,15 @@ func (m MsgEnumType) GetChannel() ch {
 	return sysChan
 }
 
-// Writes value to the appropriate channel
-func (m MsgEnumType) WriteToChannel(value interface{}) {
-	m.GetChannel() <- value
+// TODO(jeanhaley) - Wrap incoming messages in a struct that includes the message type.
+// Writes value to the appropriate channel. Takes in value as a string and converts to []byte.
+func (m MsgEnumType) WriteToChannel(value string) {
+	msg := message{
+		msg:     []byte(value),
+		t:       time.Now(),
+		msgType: m,
+	}
+	m.GetChannel() <- msg
 }
 
 // Reads from Channel.
@@ -114,7 +120,7 @@ func (c Color) Color() string {
 }
 
 var (
-	branding     = figure.NewColorFigure("JeanServ 23", "nancyj-fancy", "Blue", true)
+	branding     = figure.NewColorFigure("JeanServ 23.6 #pending update", "nancyj-fancy", "Blue", true)
 	currentstate state
 )
 
@@ -190,9 +196,14 @@ func (s *state) AddConnection(c *connection) {
 // Message "object"
 // individual message received from connection.
 type message struct {
-	msg []byte    // Single message as a list of bytes
-	t   time.Time // Time Message was received
+	msg     []byte      // Single message as a list of bytes
+	t       time.Time   // Time Message was received
+	msgType MsgEnumType // Message type. Used to define message route.
+}
 
+// Returns message payload as a string
+func (m message) String() string {
+	return string(m.msg)
 }
 
 // // return 'unix time' timestamp from message receipt
@@ -202,9 +213,9 @@ func (m message) Timestamp() int64 {
 
 func main() {
 	// instantiating global channels.
-	clientChan = make(chan interface{})
-	errorChan = make(chan interface{})
-	sysChan = make(chan interface{})
+	clientChan = make(chan message)
+	errorChan = make(chan message)
+	sysChan = make(chan message)
 	for _, v := range branding.Slicify() {
 		fmt.Println(colorWrap(Blue, v))
 		time.Sleep(100 * time.Millisecond)
@@ -231,7 +242,12 @@ func connListener() error {
 	}
 
 	// defer closing of listener until we escape from connection handler.
-	defer func() { System.WriteToChannel("closing Listener"); listener.Close() }()
+	defer func() {
+		System.WriteToChannel("closing Listener")
+		if err := listener.Close(); err != nil {
+			Error.WriteToChannel(err.Error())
+		}
+	}()
 
 	// logs what socket the listener is bound to.
 	System.WriteToChannel(fmt.Sprintf("binding Listener on socket %v", listener.Addr().String()))
@@ -241,7 +257,7 @@ func connListener() error {
 		// routine will hang here until a connection is accepted.
 		conn, err := listener.Accept()
 		if err != nil {
-			Error.WriteToChannel(err)
+			Error.WriteToChannel(err.Error())
 		}
 		newConn := connection{
 			conn:         conn,
@@ -249,7 +265,7 @@ func connListener() error {
 			startTime:    time.Now(),
 		}
 		currentstate.AddConnection(&newConn)
-		// hands accepted connection off to a connection handler go routine, and starts loop again.
+		// Kicking off a fresh connection handler, and passing connection to it.
 		go connHandler(&newConn)
 	}
 
@@ -259,10 +275,9 @@ func connListener() error {
 func connHandler(conn ConnectionHandler) {
 	branding := []byte(branding.ColorString())
 	conn.Write(&branding)
-	// isolate Client Port.
 	Client.WriteToChannel(fmt.Sprintf("starting new session:%v", conn.ConnectionId())) // logs start of new session
 	buf := make([]byte, buffersize)                                                    // Create buffer
-	// defering closing function until we eescape from session handler.
+	// defering closing function until we escape from session handler.
 	defer func() {
 		System.WriteToChannel(fmt.Sprintf("closing %v session", conn.ConnectionId()))
 		// TODO(JeanHaley) Create a state handler that can close this for us.
@@ -279,7 +294,7 @@ func connHandler(conn ConnectionHandler) {
 				Client.WriteToChannel(fmt.Sprintf("Received EOF from %v .", conn.ConnectionId()))
 				return
 			} else {
-				Error.WriteToChannel(err)
+				Error.WriteToChannel(err.Error())
 				return
 			}
 		}
@@ -319,11 +334,11 @@ func eventHandler() {
 	for {
 		select {
 		case msg := <-clientChan:
-			mwrap = colorWrap(Blue, msg.(string))
+			mwrap = colorWrap(Blue, msg.String())
 		case msg := <-sysChan:
-			mwrap = colorWrap(Yellow, msg.(string))
+			mwrap = colorWrap(Yellow, msg.String())
 		case msg := <-errorChan:
-			mwrap = colorWrap(Red, msg.(error).Error())
+			mwrap = colorWrap(Red, msg.String())
 		case <-time.After(loggerTime * time.Second):
 			// Log a message that no errors have occurred for loggerTime seconds
 			mwrap = colorWrap(Green, fmt.Sprintf(
