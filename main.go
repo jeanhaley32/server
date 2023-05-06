@@ -120,7 +120,7 @@ func (c Color) Color() string {
 }
 
 var (
-	branding     = figure.NewColorFigure("JeanServ 23.6 #pending update", "nancyj-fancy", "Blue", true)
+	branding     = figure.NewColorFigure("JeanServ 23.6#", "nancyj-fancy", "Blue", true)
 	currentstate state
 )
 
