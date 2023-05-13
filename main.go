@@ -70,8 +70,8 @@ func (m MsgEnumType) GetChannel() ch {
 // TODO(jeanhaley) - Wrap incoming messages in a struct that includes the message type.
 // Writes value to the appropriate channel. Takes in value as a string and converts to []byte.
 func (m MsgEnumType) WriteToChannel(value string) {
-	msg := message{
-		msg:     []byte(value),
+	msg := msg{
+		payload: []byte(value),
 		t:       time.Now(),
 		msgType: m,
 	}
@@ -195,20 +195,39 @@ func (s *state) AddConnection(c *connection) {
 
 // Message "object"
 // individual message received from connection.
-type message struct {
-	msg     []byte      // Single message as a list of bytes
+type msg struct {
+	Id      string      // Unique Identifier for message
+	payload []byte      // msg payload as a byte array
 	t       time.Time   // Time Message was received
 	msgType MsgEnumType // Message type. Used to define message route.
 }
 
 // Returns message payload as a string
-func (m message) String() string {
-	return string(m.msg)
+func (m msg) GetPayload() string {
+	return string(m.payload)
 }
 
-// // return 'unix time' timestamp from message receipt
-func (m message) Timestamp() int64 {
+// return 'unix time' timestamp from message receipt
+func (m msg) Timestamp() int64 {
 	return m.t.Unix()
+}
+
+// return message Id
+func (m msg) GetId() string {
+	return m.Id
+}
+
+// return message type
+func (m msg) GetMsgType() MsgEnumType {
+	return m.msgType
+}
+
+// Defines interface needed for message handler
+type message interface {
+	GetPayload() string
+	Timestamp() int64
+	GetId() string
+	GetMsgType() MsgEnumType
 }
 
 func main() {
@@ -298,22 +317,22 @@ func connHandler(conn ConnectionHandler) {
 				return
 			}
 		}
-		conn.AppendHistory(message{msg: buf[:r-1], t: time.Now()}) // saves client messgae to message history
+		conn.AppendHistory(msg{payload: buf[:r-1], t: time.Now()}) // saves client messgae to message history
 
 		// Logs message received
-		Client.WriteToChannel(fmt.Sprintf("(%v)Received message: "+colorWrap(Purple, "%v"), conn.ConnectionId(), string(conn.LastMessage().msg)))
+		Client.WriteToChannel(fmt.Sprintf("(%v)Received message: "+colorWrap(Purple, "%v"), conn.ConnectionId(), string(conn.LastMessage().GetPayload())))
 		cmsg := []byte("")
 		// Respond to message object
 		switch {
-		case string(conn.LastMessage().msg) == "ping":
+		case string(conn.LastMessage().GetPayload()) == "ping":
 			Client.WriteToChannel(fmt.Sprintf("(%v)sending: "+colorWrap(Gray, "pong"), conn.ConnectionId))
 			cmsg = []byte(colorWrap(Purple, "pong\n"))
 		// Catches "ascii:" and makes that ascii art.
-		case strings.Split(string(conn.LastMessage().msg), ":")[0] == "ascii":
+		case strings.Split(string(conn.LastMessage().GetPayload()), ":")[0] == "ascii":
 			Client.WriteToChannel(fmt.Sprintf("(%v)Returning Ascii Art.", port)) // Logs ascii art message to server
 			cmsg = []byte(
 				figure.NewColorFigure(
-					strings.Split(string(conn.LastMessage().msg), ":")[1],
+					strings.Split(string(conn.LastMessage().GetPayload()), ":")[1],
 					"", "Blue", true).String() +
 					"\n") // Sends an Ascii art version of user's message back to user.
 		default:
@@ -334,11 +353,11 @@ func eventHandler() {
 	for {
 		select {
 		case msg := <-clientChan:
-			mwrap = colorWrap(Blue, msg.String())
+			mwrap = colorWrap(Blue, msg.GetPayload())
 		case msg := <-sysChan:
-			mwrap = colorWrap(Yellow, msg.String())
+			mwrap = colorWrap(Yellow, msg.GetPayload())
 		case msg := <-errorChan:
-			mwrap = colorWrap(Red, msg.String())
+			mwrap = colorWrap(Red, msg.GetPayload())
 		case <-time.After(loggerTime * time.Second):
 			// Log a message that no errors have occurred for loggerTime seconds
 			mwrap = colorWrap(Green, fmt.Sprintf(
