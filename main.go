@@ -4,7 +4,7 @@ package main
 //		- Rethink the "state handler" and how it is used. maybe make it a "connection manager"
 //		- change UID to be a string, and use a UUID generator.
 //		- Create a flow chart that shows the flow of how a client []byte is wrapped in a "msg", and routed through
-//			the system. I feel that at the moment there is no real rhyme or reason for this, and this needs to be
+//	          the system. I feel that at the moment there is no real rhyme or reason for this, and this needs to be
 //		  codified.
 // 		- enable the acceptance of CLI arguments to set the IP, Port, and Buffer size.
 //		- re-factor code. Breakdown individual, independent functions into their own files.
