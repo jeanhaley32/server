@@ -2,7 +2,7 @@ package main
 
 // TODO(jeanhaley) - The following items need to be addressed:
 //		- Rethink the "state handler" and how it is used. maybe make it a "connection manager"
-//		-
+//		- change UID to be a string, and use a UUID generator.
 
 import (
 	"fmt"
