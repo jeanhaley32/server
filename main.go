@@ -1,7 +1,7 @@
 package main
 
 // TODO(jeanhaley) - The following items need to be addressed:
-//		- Rethink the "state handler" and how it is used. maybe make it a "connection manager"
+//		- Rethink the "state handler" and how it is going to be used. maybe make it a "connection manager"
 //		- change UID to be a string, and use a UUID generator.
 //		- Create a flow chart that shows the flow of how a client []byte is wrapped in a "msg", and routed through
 //	          the system. I feel that at the moment there is no real rhyme or reason for this, and this needs to be
