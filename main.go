@@ -231,7 +231,7 @@ func (s *state) AddConnection(c *connection) {
 // individual message received from connection.
 type msg struct {
 	destination UID         // destination of message
-	source      interface{} // source of message
+	source      UID         // source of message
 	Id          UID         // Unique Identifier for message
 	payload     []byte      // msg payload as a byte array
 	t           time.Time   // Time Message was received
