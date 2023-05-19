@@ -8,7 +8,7 @@ package main
 //		  codified.
 // 		- enable the acceptance of CLI arguments to set the IP, Port, and Buffer size.
 //		- re-factor code. Breakdown individual, independent functions into their own files.
-//    - More Long term
+//              - More Long term
 //			- Break off individual components into seperate "micro-services" using GRPC for communication.
 // 			- use Bubbtletea to create a CLI interface for the server.
 
