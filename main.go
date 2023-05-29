@@ -254,7 +254,8 @@ func (m msg) GetPayload() string {
 
 // Returns Timestamp in Month/Day/Year Hour:Minute:Second format
 func (m msg) Timestamp() timestamp {
-	return t.Format("2006-01-02T15:04:05Z")
+	return timestamp(m.t.Format("2006-01-02T15:04:05Z"))
+}
 
 // return message Id
 func (m msg) GetId() UID {
