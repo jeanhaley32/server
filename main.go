@@ -152,14 +152,21 @@ type connection struct {
 	messageHistory []message // Message History
 	connectionId   UID       // Unique Identifier for connection
 	conn           net.Conn  // connection objct
+	channel        ch        // channel for connection
 	startTime      time.Time // Time of connection starting
 }
 
 // initializes connection object
 func (c *connection) initConnection(conn net.Conn) {
+	c.channel = make(ch)
 	c.conn = conn
 	c.startTime = time.Now()
 	c.generateUid()
+}
+
+// Writes message to connection channel
+func (c *connection) WriteToChannel(m msg) {
+	c.channel <- m
 }
 
 // Returns last message bundled in messageHistory
@@ -405,6 +412,12 @@ func connHandler(conn ConnectionHandler) {
 }
 
 // Event Handler handles events such as connection shutdowns and error logging.
+// TODO (jeanhaley): At the moment, this handler really just reads from channels
+// and logs messages to the console. It's more of a placeholder for something more
+// robust.
+// The current plan is to replae this with three seperate things. A Message broker that handles
+// the routing of messages, a screenwriter that prints server state to the screen, and a log route
+// that ingests logs, sorts them, and writes them to log files.
 func eventHandler() {
 	// Create a custom logger
 	logger := log.New(os.Stdout, "", log.LstdFlags)
