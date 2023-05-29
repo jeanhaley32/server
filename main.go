@@ -1,8 +1,7 @@
 package main
 
 // TODO(jeanhaley) - The following items need to be addressed:
-//		- Rethink the "state handler" and how it is going to be used. maybe make it a "connection manager"
-//		- change UID to be a string, and use a UUID generator.
+//		- Rethink the "state handler" and how it is going to be used. maybe make it a "connection manager".
 //		- Create a flow chart that shows the flow of how a client []byte is wrapped in a "msg", and routed through
 //	          the system. I feel that at the moment there is no real rhyme or reason for this, and this needs to be
 //		  codified.
@@ -23,6 +22,7 @@ import (
 	"time"
 
 	"github.com/common-nighthawk/go-figure"
+	"github.com/google/uuid"
 )
 
 const (
@@ -31,6 +31,7 @@ const (
 	port       = "6000"      // Port to listen on
 	buffersize = 1024        // Message Buffer size.
 	loggerTime = 120         // time in between server status check, in seconds.
+	Banner     = "JeanServ 23.6#"
 )
 
 // ___ Global Channel Variables ___
@@ -131,12 +132,15 @@ func (c Color) Color() string {
 }
 
 var (
-	branding     = figure.NewColorFigure("JeanServ 23.6#", "nancyj-fancy", "Blue", true)
+	branding     = figure.NewColorFigure(Banner, "nancyj-fancy", "Blue", true)
 	currentstate state
 )
 
 // UID is used to identify individual connections.
-type UID int64
+type (
+	UID       uint32
+	timestamp string
+)
 
 // Define Enum for noClient UID
 const (
@@ -193,7 +197,7 @@ func (c connection) ConnectionId() UID {
 
 // generates a unique connection id
 func (c *connection) generateUid() {
-	c.connectionId = UID(time.Now().UnixNano())
+	c.connectionId = UID(uuid.New().ID())
 }
 
 // Defines interface needed for connection handler
@@ -248,9 +252,15 @@ func (m msg) GetPayload() string {
 	return string(m.payload)
 }
 
-// return 'unix time' timestamp from message receipt
-func (m msg) Timestamp() int64 {
-	return m.t.Unix()
+// Returns Timestamp in Month/Day/Year Hour:Minute:Second format
+func (m msg) Timestamp() timestamp {
+	return timestamp(fmt.Sprintf("%v/%v/%v %v:%v:%v",
+		m.t.Month(),
+		m.t.Day(),
+		m.t.Year(),
+		m.t.Hour(),
+		m.t.Minute(),
+		m.t.Second()))
 }
 
 // return message Id
@@ -266,7 +276,7 @@ func (m msg) GetMsgType() MsgEnumType {
 // Defines interface needed for message handler
 type message interface {
 	GetPayload() string
-	Timestamp() int64
+	Timestamp() timestamp
 	GetId() UID
 	GetMsgType() MsgEnumType
 }
