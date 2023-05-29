@@ -254,14 +254,7 @@ func (m msg) GetPayload() string {
 
 // Returns Timestamp in Month/Day/Year Hour:Minute:Second format
 func (m msg) Timestamp() timestamp {
-	return timestamp(fmt.Sprintf("%v/%v/%v %v:%v:%v",
-		m.t.Month(),
-		m.t.Day(),
-		m.t.Year(),
-		m.t.Hour(),
-		m.t.Minute(),
-		m.t.Second()))
-}
+	return t.Format("2006-01-02T15:04:05Z")
 
 // return message Id
 func (m msg) GetId() UID {
