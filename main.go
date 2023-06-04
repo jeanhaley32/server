@@ -38,6 +38,9 @@ const (
 // create a channel type with blank interface
 type ch chan message
 
+// create a Termination channel type with blank interface
+type termch chan interface{}
+
 // Define our three global log channels
 //
 //	client - Logs from individual connections.
@@ -69,6 +72,7 @@ func (m MsgEnumType) Type() string {
 	return "sys"
 }
 
+// Returns Global message routing channel based on msg type
 func (m MsgEnumType) GetChannel() ch {
 	switch m {
 	case Client:
@@ -136,37 +140,55 @@ var (
 	currentstate state
 )
 
-// UID is used to identify individual connections.
+type timestamp string
+
+// Defining UID types.
+// Node is any node that can send or receive messages, be it a client, server, or goroutine.
+// Message is any message sent or received by a node.
 type (
-	UID       uint32
-	timestamp string
+	UID   uint32
+	NID   UID // Node ID
+	MsgID UID // Message ID
 )
+
+// Returns message type as string
+func (c NID) IdType() string {
+	return "node"
+}
+
+func (m MsgID) IdType() string {
+	return "message"
+}
 
 // Define Enum for noClient UID
 const (
 	noClient UID = 0
 )
 
-// Defines state for an individual connection.
+// Defines a bundle of channels used for a connections communications
+type cnchanbundle struct {
+	conn   ch     // channel used to communicate with connection
+	ingest ch     // channel used to connect to channgels log ingestor
+	term   termch // used to coordinate connectin/ingester shutdown routine.
+}
+
+// Connection object, represent a connection to the server.
 type connection struct {
-	messageHistory []message // Message History
-	connectionId   UID       // Unique Identifier for connection
-	conn           net.Conn  // connection objct
-	channel        ch        // channel for connection
-	startTime      time.Time // Time of connection starting
+	messageHistory []message    // Message History
+	connectionId   NID          // Unique Identifier for connection
+	conn           net.Conn     // connection objct
+	chbundle       cnchanbundle // bundle of channels used for connections communications.
+	startTime      time.Time    // Time of connection starting
 }
 
 // initializes connection object
 func (c *connection) initConnection(conn net.Conn) {
-	c.channel = make(ch)
+	c.chbundle.conn = make(chan message, 20)
+	c.chbundle.ingest = make(chan message, 20)
+	c.chbundle.term = make(chan interface{})
 	c.conn = conn
 	c.startTime = time.Now()
 	c.generateUid()
-}
-
-// Writes message to connection channel
-func (c *connection) WriteToChannel(m msg) {
-	c.channel <- m
 }
 
 // Returns last message bundled in messageHistory
@@ -179,7 +201,7 @@ func (c connection) Read(buf *[]byte) (int, error) {
 	return c.conn.Read(*buf)
 }
 
-// Exposes net.Conn Write method
+// Writes to Connection handler Channel
 func (c *connection) Write(buf *[]byte) (int, error) {
 	return c.conn.Write(*buf)
 }
@@ -195,16 +217,16 @@ func (c *connection) AppendHistory(m message) {
 }
 
 // exposes ConnectionId
-func (c connection) ConnectionId() UID {
+func (c connection) ConnectionId() NID {
 	if c.connectionId == 0 {
-		return UID(0)
+		return NID(0)
 	}
 	return c.connectionId
 }
 
 // generates a unique connection id
 func (c *connection) generateUid() {
-	c.connectionId = UID(uuid.New().ID())
+	c.connectionId = NID(uuid.New().ID())
 }
 
 // Defines interface needed for connection handler
@@ -214,7 +236,7 @@ type ConnectionHandler interface {
 	Close() error
 	LastMessage() message
 	AppendHistory(message)
-	ConnectionId() UID
+	ConnectionId() NID
 }
 
 // State is used to derive over-all state of connections
@@ -226,7 +248,7 @@ func (s *state) ActiveConnections() int {
 	return len(s.connections)
 }
 
-func (s *state) RemoveConnection(cn UID) {
+func (s *state) RemoveConnection(cn NID) {
 	for i, c := range s.connections {
 		if c.connectionId == cn {
 			s.connections = append(s.connections[:i], s.connections[i+1:]...)
@@ -234,17 +256,26 @@ func (s *state) RemoveConnection(cn UID) {
 	}
 }
 
+// Appends a new connection to state 'connections
 func (s *state) AddConnection(c *connection) {
 	s.connections = append(s.connections, c)
+}
+
+// Defines payload type
+type payload []byte
+
+// Payload method to return payload as a string.
+func (p payload) String() string {
+	return string(p)
 }
 
 // Message "object"
 // individual message received from connection.
 type msg struct {
-	destination UID         // destination of message
-	source      UID         // source of message
-	Id          UID         // Unique Identifier for message
-	payload     []byte      // msg payload as a byte array
+	destination NID         // destination of message
+	source      NID         // source of message
+	ID          MsgID       // Unique Identifier for message
+	payload     payload     // msg payload as a byte array
 	t           time.Time   // Time Message was received
 	msgType     MsgEnumType // Message type. Used to define message route.
 }
@@ -254,9 +285,9 @@ func (m *msg) setTime() {
 	m.t = time.Now()
 }
 
-// Returns message payload as a string
-func (m msg) GetPayload() string {
-	return string(m.payload)
+// Return payload
+func (m msg) GetPayload() payload {
+	return m.payload
 }
 
 // Returns Timestamp in Month/Day/Year Hour:Minute:Second format
@@ -265,8 +296,8 @@ func (m msg) Timestamp() timestamp {
 }
 
 // return message Id
-func (m msg) GetId() UID {
-	return m.Id
+func (m msg) GetId() MsgID {
+	return m.ID
 }
 
 // return message type
@@ -274,11 +305,16 @@ func (m msg) GetMsgType() MsgEnumType {
 	return m.msgType
 }
 
+// Generates a unique message id
+func (m *msg) generateUid() {
+	m.ID = MsgID(uuid.New().ID())
+}
+
 // Defines interface needed for message handler
 type message interface {
-	GetPayload() string
+	GetPayload() payload
 	Timestamp() timestamp
-	GetId() UID
+	GetId() MsgID
 	GetMsgType() MsgEnumType
 }
 
@@ -427,11 +463,11 @@ func eventHandler() {
 	for {
 		select {
 		case msg := <-clientChan:
-			mwrap = colorWrap(Blue, msg.GetPayload())
+			mwrap = colorWrap(Blue, msg.GetPayload().String())
 		case msg := <-sysChan:
-			mwrap = colorWrap(Yellow, msg.GetPayload())
+			mwrap = colorWrap(Yellow, msg.GetPayload().String())
 		case msg := <-errorChan:
-			mwrap = colorWrap(Red, msg.GetPayload())
+			mwrap = colorWrap(Red, msg.GetPayload().String())
 		case <-time.After(loggerTime * time.Second):
 			// Log a message that no errors have occurred for loggerTime seconds
 			mwrap = colorWrap(Green, fmt.Sprintf(
